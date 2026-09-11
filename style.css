@@ -1,0 +1,253 @@
+* { box-sizing: border-box; }
+:root {
+  --fs-scale: 1;                                                 /* 글자 크기 배율 (WE 속성 패널에서 조절) */
+  --app-font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;    /* 글꼴 (WE 속성 패널에서 조절) */
+}
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  background: transparent; overflow: hidden;
+}
+body {
+  font-family: var(--app-font-family);
+  color: #eaeaea;
+  user-select: none;
+}
+/* Wallpaper Engine에는 실제 OS 창이 없어서 -webkit-app-region(드래그)이 동작하지 않습니다.
+   대신 app.js에서 .drag 요소에 mousedown~mousemove로 직접 위치를 옮기는 드래그를 구현했습니다.
+   .no-drag은 그 드래그 로직이 그 안의 버튼/입력 클릭을 가로채지 않도록 표시만 해둔 것입니다. */
+.drag { cursor: move; }
+.no-drag { cursor: default; }
+
+/* 화면 전체를 채우는 배경 레이어. 위젯 크기/위치와는 완전히 별개로 항상 100% 채웁니다.
+   아직 배경 이미지/동영상을 고르지 않았으면 은은한 그라데이션을 기본값으로 보여줍니다. */
+#bgLayer {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden;
+  background: linear-gradient(160deg, #20232b, #0d0e11);
+}
+#bgImage, #bgVideo {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; display: none;
+}
+
+#app {
+  position: absolute;   /* 바탕화면 전체(body) 위의 한 위젯으로 배치, JS가 left/top을 직접 조절 */
+  z-index: 10;           /* 배경 레이어보다 항상 위 */
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  height: 460px;
+  background: rgba(20, 22, 28, 0.72);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden;
+}
+
+
+#titlebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px 6px;
+  background: rgba(255,255,255,0.03);
+  font-size: calc(var(--fs-scale, 1) * 13px);
+}
+.titlebar-row1 { display: flex; align-items: center; gap: 4px; }
+.titlebar-row2 { display: flex; align-items: center; gap: 4px; }
+.row1-spacer { flex: 1; min-width: 8px; }
+#periodLabel { font-weight: 600; margin: 0 4px; font-size: calc(var(--fs-scale, 1) * 13px); }
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: #ddd;
+  cursor: pointer;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: calc(var(--fs-scale, 1) * 12px);
+  white-space: nowrap;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.1); }
+
+.view-switch { display: flex; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; }
+.view-switch button {
+  border: none; background: transparent; color: #bbb; padding: 3px 8px; cursor: pointer; font-size: calc(var(--fs-scale, 1) * 12px);
+}
+.view-switch button.active { background: #5b8def; color: white; }
+
+#authBar {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 4px 10px; font-size: calc(var(--fs-scale, 1) * 11px); color: #9aa0a6;
+  background: rgba(255,255,255,0.02);
+}
+#authStatus { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#authBar button {
+  background: rgba(91,141,239,0.2); color: #a9c4ff; border: 1px solid rgba(91,141,239,0.4);
+  border-radius: 6px; padding: 2px 8px; font-size: calc(var(--fs-scale, 1) * 11px); cursor: pointer; flex-shrink: 0;
+}
+#authBar button:hover { background: rgba(91,141,239,0.35); }
+
+.week-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: calc(var(--fs-scale, 1) * 11px);
+  color: #9aa0a6;
+  padding: 4px 6px 0;
+}
+.week-header div { padding: 2px 0; }
+
+.calendar-body {
+  flex: 1;
+  min-height: 0;   /* flex 아이템은 기본적으로 min-height:auto라서 내용(글자 커짐)이 많아지면
+                      flex:1이어도 자기 몫보다 더 커져버립니다. 0으로 강제해서 항상 남은
+                      공간만큼만 차지하게 합니다. */
+  overflow-y: auto;
+  padding: 4px 6px 8px;
+  scrollbar-width: none;    /* Firefox: 스크롤바를 안 보이게 (스크롤 자체는 계속 됨) */
+  -ms-overflow-style: none; /* 구형 Edge/IE */
+}
+.calendar-body::-webkit-scrollbar { display: none; } /* WE는 Chromium 기반이라 이 규칙이 적용됨 */
+
+/* Month view grid */
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, minmax(0, 1fr));
+  gap: 2px;
+  height: 100%;
+  min-height: 0;    /* 그리드 자신도 부모(calendar-body)보다 커지지 않도록 강제 */
+  overflow: hidden; /* 넘치면 격자가 늘어나는 대신 잘리게 해서 스크롤/중복 표시처럼 보이는 걸 방지 */
+}
+.day-cell {
+  border-radius: 8px;
+  padding: 3px 4px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.day-cell:hover { background: rgba(255,255,255,0.06); }
+.day-cell.other-month { opacity: 0.35; }
+.day-cell.empty-cell { opacity: 0; cursor: default; pointer-events: none; }
+.day-cell.today { background: rgba(91,141,239,0.18); box-shadow: inset 0 0 0 1px rgba(91,141,239,0.5); }
+.day-num { font-size: calc(var(--fs-scale, 1) * 12px); font-weight: 600; }
+.lunar-label { font-size: calc(var(--fs-scale, 1) * 9px); color: #9aa0a6; }
+.term-label { font-size: calc(var(--fs-scale, 1) * 9px); color: #f5b942; }
+.holiday-name { font-size: calc(var(--fs-scale, 1) * 8px); color: inherit; opacity: 0.9; }
+.event-dot-row { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; min-width: 0; }
+.event-chip {
+  font-size: calc(var(--fs-scale, 1) * 9.5px); padding: 1px 4px; border-radius: 3px; background: #5b8def; color: white;
+  width: 100%; overflow: hidden; white-space: normal; word-break: break-word; line-height: 1.25;
+  box-sizing: border-box;
+}
+.event-chip.completed { text-decoration: line-through; opacity: 0.55; }
+.holiday-chip { font-weight: 600; }
+
+/* Week view - hourly time grid */
+.week-wrap { display: flex; flex-direction: column; height: 100%; }
+.week-time-spacer { width: 38px; flex-shrink: 0; }
+
+.week-head-row { display: flex; padding-bottom: 2px; }
+.week-head-cell { flex: 1; text-align: center; font-size: calc(var(--fs-scale, 1) * 10px); padding: 2px 0; border-radius: 6px; }
+.week-head-cell.is-today { background: rgba(91,141,239,0.22); }
+.week-head-date { font-size: calc(var(--fs-scale, 1) * 13px); font-weight: 600; }
+
+.week-allday-row { display: flex; min-height: 4px; margin-bottom: 3px; }
+.week-allday-cell { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 0 2px; }
+
+.week-scroll { flex: 1; min-height: 0; overflow-y: auto; position: relative; cursor: grab; }
+.week-scroll:active { cursor: grabbing; }
+.week-hour-grid { display: flex; position: relative; }
+.week-time-col { width: 38px; flex-shrink: 0; }
+.week-hour-label { font-size: calc(var(--fs-scale, 1) * 9px); color: #888; text-align: right; padding-right: 4px; box-sizing: border-box; transform: translateY(-6px); }
+
+.week-days-area { flex: 1; display: flex; position: relative; }
+.week-day-track {
+  flex: 1; position: relative; box-sizing: border-box;
+  border-left: 1px solid rgba(255,255,255,0.07);
+  background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.07) 0, rgba(255,255,255,0.07) 1px, transparent 1px, transparent 44px);
+}
+.week-day-track.is-today { background-color: rgba(91,141,239,0.06); }
+
+.week-event-block {
+  position: absolute; left: 2px; right: 2px; border-radius: 5px; padding: 2px 4px;
+  overflow: hidden; color: white; font-size: calc(var(--fs-scale, 1) * 10px); cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.35); box-sizing: border-box;
+}
+.week-event-block.completed { opacity: 0.5; text-decoration: line-through; }
+.week-event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.week-event-time { font-size: calc(var(--fs-scale, 1) * 8.5px); opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.week-now-line { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #ff5566; z-index: 5; pointer-events: none; }
+.week-now-line::before {
+  content: ''; position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: #ff5566;
+}
+
+/* Modal */
+.modal {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; z-index: 20;
+}
+.modal.hidden { display: none; }
+.modal-box {
+  background: #23262e; border-radius: 12px; padding: 16px;
+  width: min(92vw, calc(300px * var(--fs-scale, 1)));
+  max-height: 90vh; overflow-y: auto; /* 글자가 커져서 모달이 창보다 길어지는 경우를 대비한 안전장치 */
+  box-sizing: border-box;
+  display: flex; flex-direction: column; gap: 6px; border: 1px solid rgba(255,255,255,0.08);
+}
+.modal-box h3 { margin: 0 0 6px; font-size: calc(var(--fs-scale, 1) * 14px); }
+.modal-box label { font-size: calc(var(--fs-scale, 1) * 11px); color: #aaa; margin-top: 4px; }
+.modal-box input[type=text], .modal-box textarea, .modal-box input[type=date], .modal-box input[type=time] {
+  background: #16181d; border: 1px solid rgba(255,255,255,0.1); color: #eee; border-radius: 6px;
+  padding: 6px 8px; font-size: calc(var(--fs-scale, 1) * 12px); width: 100%; min-width: 0; box-sizing: border-box;
+}
+.modal-box input:disabled { opacity: 0.35; cursor: not-allowed; }
+.input-with-paste { display: flex; gap: 6px; align-items: flex-start; }
+.input-with-paste input, .input-with-paste textarea { flex: 1; min-width: 0; }
+.paste-btn {
+  flex-shrink: 0; background: rgba(91,141,239,0.2); color: #a9c4ff; border: 1px solid rgba(91,141,239,0.4);
+  border-radius: 6px; padding: 6px 8px; font-size: calc(var(--fs-scale, 1) * 11px); cursor: pointer; white-space: nowrap;
+}
+.paste-btn:hover { background: rgba(91,141,239,0.35); }
+.date-row { display: flex; flex-direction: column; gap: 8px; } /* 시작/종료를 좌우로 쪼개지 않고 위아래로 쌓아서,
+                                                                     글자가 커져도 각 입력칸이 항상 모달 전체 너비를 쓸 수 있게 함 */
+.date-row > div { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.allday-row { display: flex; align-items: center; gap: 6px; font-size: calc(var(--fs-scale, 1) * 12px); color: #ddd; }
+.modal-actions { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.modal-actions .spacer { flex: 1; }
+.modal-actions button { padding: 6px 10px; border-radius: 6px; border: none; cursor: pointer; font-size: calc(var(--fs-scale, 1) * 12px); }
+.modal-actions .primary { background: #5b8def; color: white; }
+.modal-actions .danger { background: #e5484d; color: white; }
+.modal-actions button:not(.primary):not(.danger) { background: rgba(255,255,255,0.08); color: #ddd; }
+.hidden { display: none !important; }
+
+.day-events-panel {
+  position: absolute; left: 10px; top: 40px; width: 420px; max-width: 92%; max-height: 88%;
+  background: #23262e; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+  padding: 12px; display: flex; flex-direction: column; z-index: 15; overflow: hidden;
+}
+.day-events-header { display: flex; justify-content: space-between; align-items: center; font-size: calc(var(--fs-scale, 1) * 12px); margin-bottom: 6px; }
+#dayEventsList { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.day-event-item { background: rgba(255,255,255,0.05); border-radius: 6px; padding: 6px; font-size: calc(var(--fs-scale, 1) * 11px); cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.day-event-item small { color: #999; display: block; margin-top: 2px; }
+.day-event-text { flex: 1; min-width: 0; }
+.day-event-item.completed .ev-title { text-decoration: line-through; opacity: 0.55; }
+.day-event-item.holiday-item { cursor: default; }
+.day-event-item.holiday-item .day-event-text { cursor: default; }
+.day-event-item.holiday-item .ev-title { font-weight: 600; }
+.check-btn {
+  flex-shrink: 0; width: 20px; height: 20px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.06); color: #9ee6a8; font-size: calc(var(--fs-scale, 1) * 11px); line-height: 1; cursor: pointer;
+  visibility: hidden; opacity: 0; transition: opacity .12s;
+}
+.day-event-item:hover .check-btn { visibility: visible; opacity: 1; }
+.day-event-item.completed .check-btn { visibility: visible; opacity: 1; background: rgba(94,222,120,0.18); border-color: rgba(94,222,120,0.4); }
+.check-btn:hover { background: rgba(94,222,120,0.3); }
+.full-width { width: 100%; margin-top: 8px; padding: 6px; border-radius: 6px; border: none; cursor: pointer; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
