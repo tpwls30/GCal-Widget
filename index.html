@@ -2,138 +2,40 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>GCal Widget</title>
-<link rel="stylesheet" href="style.css" />
+<style>
+  body { font-family: -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; line-height: 1.7; color: #222; }
+  h1 { font-size: 28px; }
+  h2 { font-size: 18px; margin-top: 32px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
+  code { background: #f2f2f2; padding: 2px 6px; border-radius: 4px; }
+  footer { margin-top: 48px; font-size: 13px; color: #888; }
+  a { color: #3366cc; }
+</style>
 </head>
 <body>
-  <!-- 화면 전체를 채우는 배경 레이어. 위젯(#app)과 별개로, 항상 화면 크기에 맞춰집니다. -->
-  <div id="bgLayer">
-    <img id="bgImage" alt="" />
-    <video id="bgVideo" autoplay loop muted playsinline></video>
-  </div>
+  <h1>GCal Widget</h1>
+  <p>GCal Widget은 개인이 취미로 만든 무료 캘린더 위젯입니다. 구글 캘린더와 연동해서 데스크톱(Wallpaper Engine)에 월간/주간/일간 캘린더를 띄워주고, 음력·24절기 표시, 일정 추가/수정/삭제, 완료 체크 같은 기능을 제공합니다.</p>
 
-  <div id="app">
-    <div id="titlebar" class="drag">
-      <div class="titlebar-row1">
-        <button id="btnPrev" class="icon-btn no-drag">‹</button>
-        <span id="periodLabel">2026년 8월</span>
-        <button id="btnNext" class="icon-btn no-drag">›</button>
-        <div class="row1-spacer drag"></div>
-      </div>
-      <div class="titlebar-row2 no-drag">
-        <div id="viewSwitch" class="view-switch no-drag">
-          <button data-view="month" class="active no-drag">월</button>
-          <button data-view="week" class="no-drag">주</button>
-          <button data-view="day" class="no-drag">일</button>
-        </div>
-        <button id="btnToday" class="icon-btn no-drag" title="오늘">오늘</button>
-        <button id="btnAdd" class="icon-btn no-drag" title="일정 추가">＋</button>
-      </div>
-    </div>
+  <h2>주요 기능</h2>
+  <ul>
+    <li>월간 / 주간 / 일간 캘린더 보기</li>
+    <li>구글 캘린더 일정 조회, 추가, 수정, 삭제 (본인 계정에 한함)</li>
+    <li>대한민국 공휴일 자동 표시</li>
+    <li>음력 날짜 및 24절기 표시</li>
+    <li>일정 완료 체크 표시</li>
+    <li>글꼴, 글자 크기, 색상 등 개인화 설정</li>
+  </ul>
 
-    <div id="authBar" class="no-drag">
-      <span id="authStatus">구글 캘린더 미연동</span>
-      <button id="btnAuth" class="no-drag">연동하기</button>
-    </div>
+  <h2>구글 계정 연동에 대해</h2>
+  <p>이 앱은 사용자가 원할 경우에만 구글 계정으로 로그인하여, <strong>본인 소유의 캘린더</strong> 일정을 앱 화면에 표시하고 관리하는 데 사용합니다. 자세한 내용은 <a href="./privacy.html">개인정보처리방침</a>을 확인해 주세요.</p>
 
-    <div id="weekHeader" class="week-header no-drag"></div>
-    <div id="calendarBody" class="calendar-body no-drag"></div>
+  <h2>소스 코드</h2>
+  <p>이 앱은 오픈소스입니다. 전체 소스 코드는 GitHub 저장소에서 확인하실 수 있습니다: <a href="https://github.com/YOUR_USERNAME/YOUR_REPO">https://github.com/YOUR_USERNAME/YOUR_REPO</a></p>
 
-    <!-- 일정 추가/수정 모달 -->
-    <div id="eventModal" class="modal hidden no-drag">
-      <div class="modal-box">
-        <h3 id="modalTitle">일정 추가</h3>
-        <label>제목</label>
-        <div class="input-with-paste">
-          <input id="evTitle" type="text" class="no-drag" placeholder="일정 제목" />
-          <button id="evTitlePaste" class="no-drag paste-btn" title="다른 곳에서 복사한 텍스트 붙여넣기">붙여넣기</button>
-        </div>
-        <label class="allday-row">
-          <input id="evAllDay" type="checkbox" class="no-drag" checked /> 하루 종일
-        </label>
-        <div class="date-row">
-          <div>
-            <label>시작</label>
-            <input id="evStartDate" type="date" class="no-drag" />
-            <input id="evStartTime" type="time" class="no-drag" />
-          </div>
-          <div>
-            <label>종료</label>
-            <input id="evEndDate" type="date" class="no-drag" />
-            <input id="evEndTime" type="time" class="no-drag" />
-          </div>
-        </div>
-        <label>메모</label>
-        <div class="input-with-paste">
-          <textarea id="evDesc" rows="3" class="no-drag" placeholder="설명 (선택)"></textarea>
-          <button id="evDescPaste" class="no-drag paste-btn" title="다른 곳에서 복사한 텍스트 붙여넣기">붙여넣기</button>
-        </div>
-        <p style="font-size:10px; color:#888; margin:2px 0 0;">
-          ※ Wallpaper Engine은 보안상 배경화면에 키보드 입력을 전달하지 않습니다.
-          다른 곳(메모장 등)에서 제목/메모를 복사(Ctrl+C)한 뒤 "붙여넣기" 버튼을 눌러주세요.
-        </p>
-        <div class="modal-actions">
-          <button id="evDeleteBtn" class="danger hidden no-drag">삭제</button>
-          <div class="spacer"></div>
-          <button id="evCancelBtn" class="no-drag">취소</button>
-          <button id="evSaveBtn" class="primary no-drag">저장</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="dayEventsPanel" class="day-events-panel hidden no-drag">
-      <div class="day-events-header">
-        <span id="dayEventsTitle"></span>
-        <button id="dayEventsClose" class="icon-btn no-drag">×</button>
-      </div>
-      <div id="dayEventsList"></div>
-      <button id="dayEventsAdd" class="primary full-width no-drag">＋ 이 날짜에 일정 추가</button>
-    </div>
-
-    <!-- 구글 로그인(기기 흐름) 안내 오버레이: 로컬 서버를 못 띄우는 환경이라
-         코드를 보여주고 사용자가 다른 브라우저에서 승인하게 합니다 -->
-    <div id="deviceAuthModal" class="modal hidden no-drag">
-      <div class="modal-box">
-        <h3>구글 계정 연동</h3>
-        <p id="deviceAuthText" style="font-size:12px; color:#ccc; line-height:1.6;">준비 중...</p>
-        <div id="deviceAuthCode" style="font-size:22px; font-weight:700; letter-spacing:2px; text-align:center; margin:10px 0; color:#a9c4ff;"></div>
-        <div class="modal-actions">
-          <div class="spacer"></div>
-          <button id="deviceAuthCancel" class="no-drag">취소</button>
-        </div>
-      </div>
-    </div>
-    <!-- 알림 메시지 대체용 (WE 환경에서는 브라우저 기본 alert()의 확인 버튼이
-         클릭되지 않는 문제가 있어서, 같은 모달 스타일로 직접 구현했습니다) -->
-    <div id="msgModal" class="modal hidden no-drag">
-      <div class="modal-box">
-        <h3 id="msgModalTitle">알림</h3>
-        <p id="msgModalText" style="font-size:12px; color:#ddd; line-height:1.6; white-space:pre-line;"></p>
-        <div class="modal-actions">
-          <div class="spacer"></div>
-          <button id="msgModalOk" class="primary no-drag">확인</button>
-        </div>
-      </div>
-    </div>
-    <!-- 삭제 확인 등에 쓰는 확인/취소 대화상자 (WE에서는 confirm()도 동작하지 않음) -->
-    <div id="confirmModal" class="modal hidden no-drag">
-      <div class="modal-box">
-        <h3 id="confirmModalTitle">확인</h3>
-        <p id="confirmModalText" style="font-size:12px; color:#ddd; line-height:1.6; white-space:pre-line;"></p>
-        <div class="modal-actions">
-          <div class="spacer"></div>
-          <button id="confirmModalCancel" class="no-drag">취소</button>
-          <button id="confirmModalOk" class="danger no-drag">확인</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="js/lunar.js"></script>
-  <script src="js/solarTerms.js"></script>
-  <script src="js/store.js"></script>
-  <script src="js/googleAuth.js"></script>
-  <script src="js/googleCalendar.js"></script>
-  <script src="js/app.js"></script>
+  <footer>
+    <a href="./privacy.html">개인정보처리방침</a> ·
+    <a href="https://github.com/YOUR_USERNAME/YOUR_REPO/issues">문의하기</a>
+  </footer>
 </body>
 </html>
