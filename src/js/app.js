@@ -177,7 +177,7 @@ function eventColor(ev) {
 function sortEventsForDisplay(evs) {
   return [...evs].sort((a, b) => {
     if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
-    return a.start - b.start;
+    return a.end - b.end; // 마감(종료) 시간이 빠른 순서대로 위에 쌓이게
   });
 }
 
