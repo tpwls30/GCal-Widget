@@ -13,8 +13,6 @@ const state = {
 
 const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
 
-// 이전엔 preload.js가 contextBridge로 노출했지만, WE 환경은 단일 페이지라
-// 그냥 전역 함수를 직접 조합해서 씁니다.
 const CalendarMath = {
   lunarLabel: (y, m, d) => LunarCalendar.formatLunar(LunarCalendar.solarToLunar(new Date(y, m - 1, d))),
   solarTerm: (y, m, d) => SolarTerms.getSolarTermForDate(y, m, d)
@@ -163,11 +161,6 @@ function visibleEventsOnDay(d) {
 
 function isCompleted(ev) { return !!state.completedMap[ev.id]; }
 
-// 구글 캘린더 UI에서는 공휴일이 '대한민국의 휴일'이라는 별도 캘린더의 이벤트로 보이지만,
-// 우리는 공개 공휴일 캘린더를 별도의 holidaysByYear 맵으로만 조회해뒀습니다(이벤트 목록 API와는 별개 호출).
-// 일정 목록(주간 보기 하루종일 줄, 날짜별 패널)에서도 공휴일이 같이 보이도록,
-// 실제 이벤트는 아니지만 화면 표시용 "가짜 이벤트" 객체로 만들어 함께 보여줍니다.
-// (구글에 실제로 존재하는 이벤트가 아니므로 클릭해서 수정/삭제/완료 처리는 하지 않습니다.)
 function holidayPseudoEvent(d) {
   const holidayMap = state.holidaysByYear[d.getFullYear()] || {};
   const name = holidayMap[dateKey(d)];
@@ -183,9 +176,6 @@ function holidayPseudoEvent(d) {
   };
 }
 
-// 이벤트마다 서로 다른 색을 안정적으로 배정합니다 (같은 이벤트는 항상 같은 색,
-// 리렌더링/정렬이 바뀌어도 색은 유지됨). 구글이 이벤트에 colorId를 지정해뒀다면
-// 그건 지금은 별도 매핑 없이 우리 팔레트를 그대로 씁니다(색상 구분이 목적이라).
 const EVENT_COLOR_PALETTE = ['#5b8def','#ef6461','#f5b942','#34a853','#a855f7','#06b6d4','#ec4899','#f97316','#84cc16','#6366f1'];
 function eventColor(ev) {
   const key = String(ev.id || ev.title || '');
@@ -202,7 +192,6 @@ function sortEventsForDisplay(evs) {
   });
 }
 
-// 이전엔 main 프로세스(IPC)에 저장했지만, 이제 Store(localStorage)에 직접 저장합니다.
 function toggleEventCompleteLocal(id) {
   const map = Store.get('completedEvents') || {};
   const nowCompleted = !map[id];
