@@ -1,5 +1,6 @@
 // googleapis(Node 전용 SDK) 대신, 브라우저의 fetch()로 Google Calendar REST API를
-// 직접 호출합니다.
+// 직접 호출합니다. 로직(로컬 캐시 병합, 공휴일 캘린더 자동 탐색, 날짜 변환 등)은
+// 기존 Electron 버전과 최대한 동일하게 유지했습니다.
 (function () {
   const HOLIDAY_CALENDAR_ID_FALLBACK = 'ko.south_korea#holiday@group.v.calendar.google.com';
   const API_BASE = 'https://www.googleapis.com/calendar/v3';
@@ -37,12 +38,18 @@
       const data = await authedFetch(API_BASE + '/calendars/' + calendarId + '/events?' + params.toString());
       return (data.items || []).map(googleEventToLocal);
     } catch (e) {
+      // 여기서 그냥 던지면 캘린더 화면 자체가 전혀 안 그려지는 문제(토큰 만료 등으로
+      // "가끔 캘린더가 안 뜨던" 원인)가 있었습니다. 실패해도 로컬 일정만이라도 보여줍니다.
       console.warn('[GoogleCalendar] listEvents 실패, 로컬 일정만 표시합니다:', e.message);
       const localEvents = Store.get('localEvents') || [];
       return localEvents.filter(e => e.start < timeMax && e.end > timeMin);
     }
   }
 
+  /**
+   * 사용자 계정의 캘린더 목록(calendarList)에서 실제 '대한민국의 휴일' 캘린더를 찾아 ID를 반환합니다.
+   * 하드코딩된 ID는 계정/지역에 따라 안 맞을 수 있어서, 실제 구독 목록에서 이름으로 찾는 편이 안정적입니다.
+   */
   async function resolveHolidayCalendarId() {
     const cached = Store.get('holidayCalendarId');
     if (cached) return cached;

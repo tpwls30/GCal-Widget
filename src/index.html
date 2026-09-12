@@ -54,13 +54,27 @@
         <div class="date-row">
           <div>
             <label>시작</label>
-            <input id="evStartDate" type="date" class="no-drag" />
-            <input id="evStartTime" type="time" class="no-drag" />
+            <div class="picker-row">
+              <select id="evStartYear" class="no-drag"></select>년
+              <select id="evStartMonth" class="no-drag"></select>월
+              <select id="evStartDay" class="no-drag"></select>일
+            </div>
+            <div class="picker-row" id="evStartTimeRow">
+              <select id="evStartHour" class="no-drag"></select>시
+              <select id="evStartMinute" class="no-drag"></select>분
+            </div>
           </div>
           <div>
             <label>종료</label>
-            <input id="evEndDate" type="date" class="no-drag" />
-            <input id="evEndTime" type="time" class="no-drag" />
+            <div class="picker-row">
+              <select id="evEndYear" class="no-drag"></select>년
+              <select id="evEndMonth" class="no-drag"></select>월
+              <select id="evEndDay" class="no-drag"></select>일
+            </div>
+            <div class="picker-row" id="evEndTimeRow">
+              <select id="evEndHour" class="no-drag"></select>시
+              <select id="evEndMinute" class="no-drag"></select>분
+            </div>
           </div>
         </div>
         <label>메모</label>

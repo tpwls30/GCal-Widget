@@ -1,7 +1,12 @@
 // 구글 로그인 - 기기 흐름(Device Authorization Grant)
 //
+// 기존 Electron 버전은 localhost:42813에 임시 HTTP 서버를 띄워서 OAuth 리다이렉트를
+// 받는 방식이었는데, Wallpaper Engine 웹 배경화면 안에서는 로컬 서버를 띄울 수 없습니다.
+// 그래서 리다이렉트가 필요 없는 "기기 흐름"으로 바꿨습니다: 사용자에게 코드를 보여주고,
+// 사용자가 아무 브라우저에서나 그 코드를 입력해 승인하면, 우리는 뒤에서 주기적으로
+// 승인이 됐는지 물어봅니다(polling).
 //
-// ⚠️ 준비물: Google Cloud Console에서 이 프로젝트에 OAuth 클라이언트를 하나 만들어야 합니다.
+// ⚠️ 준비물: Google Cloud Console에서 이 프로젝트에 OAuth 클라이언트를 하나 더 만들어야 합니다.
 //    "사용자 인증 정보 만들기" -> "OAuth 클라이언트 ID" -> 애플리케이션 유형: "TV 및 제한된 입력 기기".
 //    이 유형은 클라이언트 시크릿이 필요 없어서(공개 배포되는 위젯 파일에 비밀 값을 넣지 않아도 됨),
 //    아래 CLIENT_ID 자리에 발급받은 클라이언트 ID만 넣으면 됩니다.
@@ -12,6 +17,10 @@
 //    기능(구글 미연동 상태와 동일)은 정상적으로 계속 동작합니다.
 (function () {
   const CLIENT_ID = 'YOUR_TV_LIMITED_INPUT_CLIENT_ID.apps.googleusercontent.com'; // TODO: 발급받은 클라이언트 ID로 교체
+  // "TV 및 제한된 입력 기기" 유형으로 만들었다면 시크릿이 필요 없어 비워두면 됩니다.
+  // 만약 기존에 쓰던 "데스크톱 앱" 유형 클라이언트를 그대로 쓰고 있다면(Missing required
+  // parameter: client_secret 오류가 난다면 이 경우입니다), 여기에 그 클라이언트의 시크릿을
+  // 넣어주세요. 값이 있으면 요청에 자동으로 포함되고, 비어있으면 아예 안 보냅니다.
   const CLIENT_SECRET = '';
   const SCOPES = 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email';
   const DEVICE_CODE_URL = 'https://oauth2.googleapis.com/device/code';
@@ -59,6 +68,10 @@
       const refreshed = await refreshAccessToken();
       return refreshed.access_token;
     } catch (e) {
+      // 갱신 실패(토큰 만료/취소/네트워크 오류 등)는 "연동은 되어 있는데 계속 실패하는"
+      // 깨진 상태로 남기지 않고 자동으로 로그아웃 처리합니다. 이렇게 하면 다음 조회부터
+      // 바로 로컬 전용 모드로 정상 동작해서, "가끔 캘린더가 아예 안 뜨던" 문제(수동으로
+      // 로그아웃 후 재연동해야만 고쳐지던 것)가 자동으로 해결됩니다.
       console.warn('[GoogleAuth] 토큰 갱신 실패, 자동으로 연동을 해제합니다:', e.message);
       signOut();
       throw e;

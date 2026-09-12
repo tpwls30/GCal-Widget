@@ -672,11 +672,74 @@ document.addEventListener('click', (e) => {
 });
 
 // ---------------- Event modal ----------------
-// 하루 종일 체크박스 상태에 따라 시간 입력을 켜고 끕니다.
+// 날짜/시간은 네이티브 input 대신 select 드롭다운(년/월/일, 시/분)으로 구성했습니다.
+// Wallpaper Engine은 키보드도, 마우스 휠도 배경화면에 전달하지 않아서 네이티브
+// date/time input의 세그먼트 조절이 아예 안 됐기 때문입니다. select는 클릭만으로
+// 열고 고를 수 있어서 이 제약과 무관하게 동작합니다.
+function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); } // month: 1~12
+
+function fillSelect(sel, count, startAt, formatFn) {
+  sel.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const value = startAt + i;
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = formatFn ? formatFn(value) : String(value);
+    sel.appendChild(opt);
+  }
+}
+
+function populateDateSelects(prefix, date) {
+  const yearSel = document.getElementById(prefix + 'Year');
+  const monthSel = document.getElementById(prefix + 'Month');
+  const daySel = document.getElementById(prefix + 'Day');
+  const curYear = date.getFullYear();
+
+  fillSelect(yearSel, 8, curYear - 2, (y) => y + '년');
+  yearSel.value = curYear;
+  fillSelect(monthSel, 12, 1, (m) => m + '월');
+  monthSel.value = date.getMonth() + 1;
+
+  const refreshDays = (keepDay) => {
+    const y = Number(yearSel.value), m = Number(monthSel.value);
+    const maxDay = daysInMonth(y, m);
+    const wanted = keepDay != null ? keepDay : Number(daySel.value) || 1;
+    fillSelect(daySel, maxDay, 1, (d) => d + '일');
+    daySel.value = Math.min(wanted, maxDay);
+  };
+  refreshDays(date.getDate());
+  yearSel.onchange = () => refreshDays();
+  monthSel.onchange = () => refreshDays();
+}
+
+function populateTimeSelects(prefix, date) {
+  const hourSel = document.getElementById(prefix + 'Hour');
+  const minSel = document.getElementById(prefix + 'Minute');
+  fillSelect(hourSel, 24, 0, pad2);
+  hourSel.value = date.getHours();
+  fillSelect(minSel, 60, 0, pad2);
+  minSel.value = date.getMinutes();
+}
+
+function getPickedDate(prefix) {
+  const y = Number(document.getElementById(prefix + 'Year').value);
+  const m = Number(document.getElementById(prefix + 'Month').value);
+  const d = Number(document.getElementById(prefix + 'Day').value);
+  return new Date(y, m - 1, d);
+}
+
+function getPickedDateTime(prefix) {
+  const base = getPickedDate(prefix);
+  base.setHours(Number(document.getElementById(prefix + 'Hour').value), Number(document.getElementById(prefix + 'Minute').value), 0, 0);
+  return base;
+}
+
+// 하루 종일 체크박스 상태에 따라 시간 선택을 켜고 끕니다.
 function updateTimeFieldsDisabled() {
   const allDay = document.getElementById('evAllDay').checked;
-  document.getElementById('evStartTime').disabled = allDay;
-  document.getElementById('evEndTime').disabled = allDay;
+  ['evStartHour', 'evStartMinute', 'evEndHour', 'evEndMinute'].forEach(id => {
+    document.getElementById(id).disabled = allDay;
+  });
 }
 document.getElementById('evAllDay').addEventListener('change', updateTimeFieldsDisabled);
 
@@ -690,10 +753,13 @@ function openEventModal(ev, presetDate) {
 
   const base = ev ? new Date(ev.start) : (presetDate || new Date());
   const baseEnd = ev ? new Date(ev.end) : (presetDate || new Date());
-  document.getElementById('evStartDate').value = dateKey(base);
-  document.getElementById('evEndDate').value = dateKey(baseEnd);
-  document.getElementById('evStartTime').value = ev && !ev.allDay ? `${pad2(base.getHours())}:${pad2(base.getMinutes())}` : '09:00';
-  document.getElementById('evEndTime').value = ev && !ev.allDay ? `${pad2(baseEnd.getHours())}:${pad2(baseEnd.getMinutes())}` : '10:00';
+  const startTimeDefault = new Date(base); startTimeDefault.setHours(9, 0, 0, 0);
+  const endTimeDefault = new Date(baseEnd); endTimeDefault.setHours(10, 0, 0, 0);
+
+  populateDateSelects('evStart', base);
+  populateDateSelects('evEnd', baseEnd);
+  populateTimeSelects('evStart', ev && !ev.allDay ? base : startTimeDefault);
+  populateTimeSelects('evEnd', ev && !ev.allDay ? baseEnd : endTimeDefault);
   updateTimeFieldsDisabled();
 
   document.getElementById('eventModal').classList.remove('hidden');
@@ -732,17 +798,13 @@ document.getElementById('evSaveBtn').addEventListener('click', async () => {
   const title = document.getElementById('evTitle').value.trim();
   if (!title) { showMessage('제목을 입력해 주세요'); return; }
   const allDay = document.getElementById('evAllDay').checked;
-  const sd = document.getElementById('evStartDate').value;
-  const ed = document.getElementById('evEndDate').value || sd;
   let start, end;
   if (allDay) {
-    start = new Date(sd + 'T00:00:00').getTime();
-    end = addDays(new Date(ed + 'T00:00:00'), 1).getTime();
+    start = getPickedDate('evStart').getTime();
+    end = addDays(getPickedDate('evEnd'), 1).getTime();
   } else {
-    const st = document.getElementById('evStartTime').value || '09:00';
-    const et = document.getElementById('evEndTime').value || '10:00';
-    start = new Date(`${sd}T${st}:00`).getTime();
-    end = new Date(`${ed}T${et}:00`).getTime();
+    start = getPickedDateTime('evStart').getTime();
+    end = getPickedDateTime('evEnd').getTime();
   }
   const payload = {
     ...(state.editingEvent || {}),
