@@ -219,10 +219,24 @@ body {
 /* 날짜/시간은 키보드나 마우스 휠 없이도(Wallpaper Engine 제약) 클릭만으로 고를 수 있도록
    네이티브 date/time input 대신 select 드롭다운으로 구성했습니다. */
 .picker-row { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; font-size: calc(var(--fs-scale, 1) * 12px); color: #ccc; }
-.picker-row select {
+/* 커스텀 드롭다운: 네이티브 <select>는 OS 팝업창을 새로 띄우려고 하는데,
+   Wallpaper Engine의 오프스크린 렌더링 환경에서는 이게 크래시를 유발했습니다
+   (STATUS_ILLEGAL_INSTRUCTION). 그래서 팝업 없이 순수 DOM/CSS로 직접 구현했습니다. */
+.cdrop { position: relative; display: inline-block; }
+.cdrop-btn {
   background: #16181d; border: 1px solid rgba(255,255,255,0.1); color: #eee; border-radius: 6px;
-  padding: 5px 4px; font-size: calc(var(--fs-scale, 1) * 12px); cursor: pointer;
+  padding: 5px 6px; font-size: calc(var(--fs-scale, 1) * 12px); cursor: pointer; min-width: 3em;
 }
+.cdrop-btn:hover { background: #1d2027; }
+.cdrop.disabled .cdrop-btn { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+.cdrop-list {
+  position: absolute; left: 0; top: 100%; margin-top: 2px; z-index: 30;
+  max-height: 160px; overflow-y: auto; min-width: 100%;
+  background: #23262e; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.cdrop-item { padding: 5px 10px; font-size: calc(var(--fs-scale, 1) * 12px); color: #eee; cursor: pointer; white-space: nowrap; }
+.cdrop-item:hover, .cdrop-item.selected { background: rgba(91,141,239,0.3); }
 .allday-row { display: flex; align-items: center; gap: 6px; font-size: calc(var(--fs-scale, 1) * 12px); color: #ddd; }
 .modal-actions { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
 .modal-actions .spacer { flex: 1; }

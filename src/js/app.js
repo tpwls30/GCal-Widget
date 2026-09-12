@@ -18,8 +18,6 @@ const CalendarMath = {
   solarTerm: (y, m, d) => SolarTerms.getSolarTermForDate(y, m, d)
 };
 
-// Wallpaper Engine 환경에서는 브라우저 기본 alert()의 확인 버튼이 클릭되지 않는
-// 문제가 있어서(포커스/입력 처리 관련 제약), 같은 모달 스타일로 직접 구현한 알림창을 씁니다.
 function showMessage(text, title) {
   document.getElementById('msgModalTitle').textContent = title || '알림';
   document.getElementById('msgModalText').textContent = text;
@@ -30,9 +28,6 @@ function closeMessage() {
 }
 document.getElementById('msgModalOk').addEventListener('click', closeMessage);
 
-// Wallpaper Engine는 배경화면 웹페이지로는 마우스 휠(스크롤) 이벤트를 아예 전달하지
-// 않습니다(보안상의 이유로 공식적으로 미지원 - 왼쪽 클릭과 드래그만 전달됨). 그래서
-// 스크롤이 필요한 영역은 전부 "눌러서 위아래로 끄는" 방식으로 직접 구현했습니다.
 let scrollDragMoved = false;
 function initDragToScroll(container) {
   let dragging = false, startY = 0, startScrollTop = 0;
@@ -50,10 +45,6 @@ function initDragToScroll(container) {
   window.addEventListener('mouseup', () => { dragging = false; });
 }
 
-// Wallpaper Engine에서 브라우저 배경화면으로 띄우면, 마우스 입력이 WE 쪽에서 합성되어
-// 전달되기 때문에 네이티브 'dblclick' 이벤트가 아예 안 잡히는 경우가 있습니다(일반 클릭은
-// 정상 동작하는 것과 대조적). 그래서 더블클릭이 필요한 곳은 전부 'click' 두 번을 직접
-// 타이밍으로 감지하는 방식으로 바꿨습니다.
 function onDoubleClick(el, handler) {
   let lastTime = 0;
   el.addEventListener('click', (e) => {
@@ -68,8 +59,6 @@ function onDoubleClick(el, handler) {
   });
 }
 
-// confirm()도 WE에서 동작하지 않아 같은 방식으로 대체합니다.
-// 사용법: showConfirm('삭제할까요?', () => { 실제로 삭제하는 코드 });
 let confirmCallback = null;
 function showConfirm(text, onConfirm, title) {
   document.getElementById('confirmModalTitle').textContent = title || '확인';
@@ -350,11 +339,6 @@ async function renderMonth(skipFetch) {
   }
   body.appendChild(grid);
 
-  // CSS의 "1fr" 행 6개는 이론적으로 정확히 6등분이지만, 실제 픽셀로 환산할 때
-  // 소수점 반올림 때문에 행 사이에 미세한(1px 이하) 틈이 생길 수 있습니다. 평소엔
-  // 안 보이지만, '오늘' 칸처럼 배경색이 진한 셀이 그 틈에 걸치면 다음 줄 배경이
-  // 살짝 비쳐 보여서 마치 달력이 아래로 반복되는 것처럼 보였습니다. 실제로 그려진
-  // 후 정확한 픽셀 높이를 측정해서 6등분한 값을 다시 명시적으로 지정해 이 틈을 없앱니다.
   requestAnimationFrame(() => {
     const GAP = 2; // .month-grid의 gap 값과 반드시 같아야 함
     const rowH = Math.floor((grid.clientHeight - GAP * 5) / 6);
@@ -660,66 +644,129 @@ document.addEventListener('click', (e) => {
   panel.classList.add('hidden');
 });
 
-// ---------------- Event modal ----------------
-// 날짜/시간은 네이티브 input 대신 select 드롭다운(년/월/일, 시/분)으로 구성했습니다.
-// Wallpaper Engine은 키보드도, 마우스 휠도 배경화면에 전달하지 않아서 네이티브
-// date/time input의 세그먼트 조절이 아예 안 됐기 때문입니다. select는 클릭만으로
-// 열고 고를 수 있어서 이 제약과 무관하게 동작합니다.
+const dropdowns = {};
+
+function makeDropdown(containerId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'cdrop-btn no-drag';
+  const list = document.createElement('div');
+  list.className = 'cdrop-list hidden';
+  container.appendChild(btn);
+  container.appendChild(list);
+  initDragToScroll(list); // 분(0~59) 목록처럼 길 때 휠 없이도 드래그로 넘길 수 있게
+
+  const state = { value: null, options: [], onChangeCb: null };
+
+  function closeList() { list.classList.add('hidden'); }
+  function openList() {
+    document.querySelectorAll('.cdrop-list').forEach(l => l.classList.add('hidden'));
+    list.classList.remove('hidden');
+  }
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (container.classList.contains('disabled')) return;
+    list.classList.contains('hidden') ? openList() : closeList();
+  });
+
+  const api = {
+    setOptions(options) { // [{value, label}]
+      state.options = options;
+      list.innerHTML = '';
+      options.forEach(opt => {
+        const item = document.createElement('div');
+        item.className = 'cdrop-item no-drag';
+        item.textContent = opt.label;
+        item.addEventListener('click', (e) => {
+          if (scrollDragMoved) { scrollDragMoved = false; return; } // 드래그로 스크롤한 직후 오선택 방지
+          e.stopPropagation();
+          api.setValue(opt.value);
+          closeList();
+          if (state.onChangeCb) state.onChangeCb(opt.value);
+        });
+        list.appendChild(item);
+      });
+    },
+    setValue(v) {
+      state.value = v;
+      const found = state.options.find(o => String(o.value) === String(v));
+      btn.textContent = found ? found.label : String(v);
+      list.querySelectorAll('.cdrop-item').forEach((el, i) => {
+        el.classList.toggle('selected', state.options[i] && String(state.options[i].value) === String(v));
+      });
+    },
+    getValue() { return state.value; },
+    onChange(cb) { state.onChangeCb = cb; },
+    setDisabled(flag) { container.classList.toggle('disabled', flag); }
+  };
+  return api;
+}
+
+// 드롭다운 바깥을 클릭하면 열려있던 목록을 닫습니다.
+document.addEventListener('click', () => {
+  document.querySelectorAll('.cdrop-list').forEach(l => l.classList.add('hidden'));
+});
+
+['evStartYear', 'evStartMonth', 'evStartDay', 'evStartHour', 'evStartMinute',
+ 'evEndYear', 'evEndMonth', 'evEndDay', 'evEndHour', 'evEndMinute'].forEach(id => {
+  dropdowns[id] = makeDropdown(id);
+});
+
 function daysInMonth(year, month) { return new Date(year, month, 0).getDate(); } // month: 1~12
 
-function fillSelect(sel, count, startAt, formatFn) {
-  sel.innerHTML = '';
+function numberOptions(count, startAt, formatFn) {
+  const out = [];
   for (let i = 0; i < count; i++) {
     const value = startAt + i;
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = formatFn ? formatFn(value) : String(value);
-    sel.appendChild(opt);
+    out.push({ value, label: formatFn ? formatFn(value) : String(value) });
   }
+  return out;
 }
 
 function populateDateSelects(prefix, date) {
-  const yearSel = document.getElementById(prefix + 'Year');
-  const monthSel = document.getElementById(prefix + 'Month');
-  const daySel = document.getElementById(prefix + 'Day');
+  const yearDd = dropdowns[prefix + 'Year'];
+  const monthDd = dropdowns[prefix + 'Month'];
+  const dayDd = dropdowns[prefix + 'Day'];
   const curYear = date.getFullYear();
 
-  fillSelect(yearSel, 8, curYear - 2, (y) => y + '년');
-  yearSel.value = curYear;
-  fillSelect(monthSel, 12, 1, (m) => m + '월');
-  monthSel.value = date.getMonth() + 1;
+  yearDd.setOptions(numberOptions(8, curYear - 2, (y) => y + '년'));
+  yearDd.setValue(curYear);
+  monthDd.setOptions(numberOptions(12, 1, (m) => m + '월'));
+  monthDd.setValue(date.getMonth() + 1);
 
   const refreshDays = (keepDay) => {
-    const y = Number(yearSel.value), m = Number(monthSel.value);
+    const y = Number(yearDd.getValue()), m = Number(monthDd.getValue());
     const maxDay = daysInMonth(y, m);
-    const wanted = keepDay != null ? keepDay : Number(daySel.value) || 1;
-    fillSelect(daySel, maxDay, 1, (d) => d + '일');
-    daySel.value = Math.min(wanted, maxDay);
+    const wanted = keepDay != null ? keepDay : Number(dayDd.getValue()) || 1;
+    dayDd.setOptions(numberOptions(maxDay, 1, (d) => d + '일'));
+    dayDd.setValue(Math.min(wanted, maxDay));
   };
   refreshDays(date.getDate());
-  yearSel.onchange = () => refreshDays();
-  monthSel.onchange = () => refreshDays();
+  yearDd.onChange(() => refreshDays());
+  monthDd.onChange(() => refreshDays());
 }
 
 function populateTimeSelects(prefix, date) {
-  const hourSel = document.getElementById(prefix + 'Hour');
-  const minSel = document.getElementById(prefix + 'Minute');
-  fillSelect(hourSel, 24, 0, pad2);
-  hourSel.value = date.getHours();
-  fillSelect(minSel, 60, 0, pad2);
-  minSel.value = date.getMinutes();
+  const hourDd = dropdowns[prefix + 'Hour'];
+  const minDd = dropdowns[prefix + 'Minute'];
+  hourDd.setOptions(numberOptions(24, 0, pad2));
+  hourDd.setValue(date.getHours());
+  minDd.setOptions(numberOptions(60, 0, pad2));
+  minDd.setValue(date.getMinutes());
 }
 
 function getPickedDate(prefix) {
-  const y = Number(document.getElementById(prefix + 'Year').value);
-  const m = Number(document.getElementById(prefix + 'Month').value);
-  const d = Number(document.getElementById(prefix + 'Day').value);
+  const y = Number(dropdowns[prefix + 'Year'].getValue());
+  const m = Number(dropdowns[prefix + 'Month'].getValue());
+  const d = Number(dropdowns[prefix + 'Day'].getValue());
   return new Date(y, m - 1, d);
 }
 
 function getPickedDateTime(prefix) {
   const base = getPickedDate(prefix);
-  base.setHours(Number(document.getElementById(prefix + 'Hour').value), Number(document.getElementById(prefix + 'Minute').value), 0, 0);
+  base.setHours(Number(dropdowns[prefix + 'Hour'].getValue()), Number(dropdowns[prefix + 'Minute'].getValue()), 0, 0);
   return base;
 }
 
@@ -727,7 +774,7 @@ function getPickedDateTime(prefix) {
 function updateTimeFieldsDisabled() {
   const allDay = document.getElementById('evAllDay').checked;
   ['evStartHour', 'evStartMinute', 'evEndHour', 'evEndMinute'].forEach(id => {
-    document.getElementById(id).disabled = allDay;
+    dropdowns[id].setDisabled(allDay);
   });
 }
 document.getElementById('evAllDay').addEventListener('change', updateTimeFieldsDisabled);
@@ -931,9 +978,6 @@ function updateSettingsLocal(partial) {
   return merged;
 }
 
-// ---------------- 위치 (구 OS 창 대신 직접 드래그 구현) ----------------
-// 크기 조절은 오른쪽 아래를 끌어당기는 방식 대신, WE 속성 패널의
-// "위젯 너비/높이" 슬라이더로만 하도록 바꿨습니다.
 function initDragAndResize() {
   const app = document.getElementById('app');
   const titlebar = document.getElementById('titlebar');

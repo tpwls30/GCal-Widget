@@ -1,3 +1,7 @@
+// electron-store를 대체하는 localStorage 기반 저장소입니다.
+// Wallpaper Engine 웹 배경화면에는 Node.js가 없어서 파일 시스템에 직접 쓸 수 없기 때문에,
+// 브라우저의 localStorage에 JSON 하나로 저장합니다. get/set은 이전 코드와 최대한 호환되도록
+// 'settings.opacity' 같은 점(dot) 표기 경로를 그대로 지원합니다.
 (function () {
   const STORAGE_KEY = 'gcalWidgetStore.v1';
 
