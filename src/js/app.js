@@ -181,6 +181,12 @@ function sortEventsForDisplay(evs) {
   });
 }
 
+// 하루 종일 일정 묶음과 시간이 정해진 일정 묶음 사이의 경계인지 확인합니다.
+// (둘을 붙여놓으면 헷갈려 보인다는 피드백이 있어서, 경계에 시각적으로 간격을 둡니다)
+function needsGroupGap(prevEv, curEv) {
+  return !!(prevEv && prevEv.allDay && curEv && !curEv.allDay);
+}
+
 function toggleEventCompleteLocal(id) {
   const map = Store.get('completedEvents') || {};
   const nowCompleted = !map[id];
@@ -314,12 +320,15 @@ async function renderMonth(skipFetch) {
       const row = document.createElement('div');
       row.className = 'event-dot-row';
       const maxShow = 3;
+      let prevEv = null;
       dayEvents.slice(0, maxShow).forEach(ev => {
         const chip = document.createElement('div');
         chip.className = 'event-chip no-drag' + (isCompleted(ev) ? ' completed' : '');
+        if (needsGroupGap(prevEv, ev)) chip.classList.add('group-gap');
         chip.style.background = eventColor(ev);
         chip.textContent = ev.title;
         row.appendChild(chip);
+        prevEv = ev;
       });
       if (dayEvents.length > maxShow) {
         const more = document.createElement('div');
@@ -547,9 +556,12 @@ async function renderDay(skipFetch) {
   info.innerHTML = html;
   wrap.appendChild(info);
 
-  eventsOnDay(d).forEach(ev => {
+  let prevDayViewEv = null;
+  sortEventsForDisplay(eventsOnDay(d)).forEach(ev => {
     const item = buildEventListItem(ev, async () => { await renderDay(true); });
+    if (needsGroupGap(prevDayViewEv, ev)) item.classList.add('group-gap');
     wrap.appendChild(item);
+    prevDayViewEv = ev;
   });
 
   const addBtn = document.createElement('button');
@@ -587,12 +599,15 @@ function openDayPanel(d, anchorEl) {
     list.appendChild(empty);
   }
   if (holiday) list.appendChild(buildEventListItem(holiday));
-  evs.forEach(ev => {
+  let prevPanelEv = holiday || null;
+  sortEventsForDisplay(evs).forEach(ev => {
     const item = buildEventListItem(ev, async () => {
       openDayPanel(d, anchorEl);
       await render(true);
     });
+    if (needsGroupGap(prevPanelEv, ev)) item.classList.add('group-gap');
     list.appendChild(item);
+    prevPanelEv = ev;
   });
   panel.classList.remove('hidden');
   positionPanelNearAnchor(panel, anchorEl);
