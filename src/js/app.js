@@ -972,6 +972,7 @@ function applyFontSettings(s) {
   const root = document.documentElement.style;
   root.setProperty('--app-font-family', FONT_STACKS[s.fontFamily] || FONT_STACKS.default);
   root.setProperty('--fs-scale', s.fontScale || 1);
+  root.setProperty('--group-gap', (s.groupGap != null ? s.groupGap : 8) + 'px');
 }
 
 // ---------------- Settings apply (구 window.api.onSettingsChanged 대체) ----------------
@@ -1053,6 +1054,7 @@ window.wallpaperPropertyListener = {
     if (properties.weekdayColor) partial.weekdayColor = weColorToHex(properties.weekdayColor.value);
     if (properties.fontFamily) partial.fontFamily = properties.fontFamily.value;
     if (properties.fontScale) partial.fontScale = properties.fontScale.value;
+    if (properties.groupGap) partial.groupGap = properties.groupGap.value;
     if (properties.widgetWidth) {
       partial.widgetWidth = properties.widgetWidth.value;
       document.getElementById('app').style.width = properties.widgetWidth.value + 'px';

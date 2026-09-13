@@ -59,6 +59,7 @@
         ]
       },
       "fontScale": { "order": 12, "text": "글자 크기", "type": "slider", "value": 1, "min": 0.8, "max": 5, "step": 0.1 },
+      "groupGap": { "order": 12.5, "text": "하루종일/시간 일정 사이 간격(px)", "type": "slider", "value": 8, "min": 0, "max": 40, "step": 1 },
       "widgetWidth": { "order": 13, "text": "위젯 너비(px)", "type": "slider", "value": 360, "min": 260, "max": 3840, "step": 10 },
       "widgetHeight": { "order": 14, "text": "위젯 높이(px)", "type": "slider", "value": 460, "min": 300, "max": 2160, "step": 10 },
       "backgroundImage": {

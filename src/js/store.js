@@ -17,6 +17,7 @@
       calendarId: 'primary',
       fontFamily: 'default',
       fontScale: 1,
+      groupGap: 8, // 하루종일 일정 묶음과 시간 지정 일정 묶음 사이 간격(px)
       // Wallpaper Engine에는 실제 OS 창이 없어서, 위젯의 위치/크기를 직접 기억해둬야 합니다.
       widgetX: 40,
       widgetY: 40,

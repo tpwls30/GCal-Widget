@@ -2,6 +2,7 @@
 :root {
   --fs-scale: 1;                                                 /* 글자 크기 배율 (WE 속성 패널에서 조절) */
   --app-font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;    /* 글꼴 (WE 속성 패널에서 조절) */
+  --group-gap: 8px;                                              /* 하루종일/시간 일정 사이 간격 (WE 속성 패널에서 조절) */
 }
 html, body {
   margin: 0; padding: 0; width: 100%; height: 100%;
@@ -144,7 +145,7 @@ body {
   box-sizing: border-box;
 }
 .event-chip.completed { text-decoration: line-through; opacity: 0.55; }
-.event-chip.group-gap { margin-top: 5px; } /* 하루종일 묶음과 시간 지정 묶음 사이 구분용 간격 */
+.event-chip.group-gap { margin-top: var(--group-gap, 8px); } /* 하루종일 묶음과 시간 지정 묶음 사이 구분용 간격 */
 .holiday-chip { font-weight: 600; }
 
 /* Week view - hourly time grid */
@@ -255,7 +256,7 @@ body {
 .day-events-header { display: flex; justify-content: space-between; align-items: center; font-size: calc(var(--fs-scale, 1) * 12px); margin-bottom: 6px; }
 #dayEventsList { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .day-event-item { background: rgba(255,255,255,0.05); border-radius: 6px; padding: 6px; font-size: calc(var(--fs-scale, 1) * 11px); cursor: pointer; display: flex; align-items: center; gap: 6px; }
-.day-event-item.group-gap { margin-top: 10px; } /* 하루종일 묶음과 시간 지정 묶음 사이 구분용 간격 */
+.day-event-item.group-gap { margin-top: var(--group-gap, 8px); } /* 하루종일 묶음과 시간 지정 묶음 사이 구분용 간격 */
 .day-event-item small { color: #999; display: block; margin-top: 2px; }
 .day-event-text { flex: 1; min-width: 0; }
 .day-event-item.completed .ev-title { text-decoration: line-through; opacity: 0.55; }
